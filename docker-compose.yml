@@ -1,10 +1,11 @@
 version: '3.8'
 
 services:
-  # Aplicación Node.js
   app:
-    build: .
+    image: node:18-alpine
     container_name: correos-tracking-app
+    working_dir: /app
+    command: sh -c "npm install && node src/server.js"
     ports:
       - "3000:3000"
     environment:
@@ -12,11 +13,14 @@ services:
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_USER=correos_user
-      - DB_PASSWORD=correos_password_seguro_123
+      - DB_PASSWORD=${DB_PASSWORD:-correos_password_123}
       - DB_NAME=correos_tracking
       - CORREOS_CLIENT_ID=${CORREOS_CLIENT_ID}
       - CORREOS_CLIENT_SECRET=${CORREOS_CLIENT_SECRET}
-      - CRON_SCHEDULE=0 */6 * * *
+      - CRON_SCHEDULE=${CRON_SCHEDULE:-0 */6 * * *}
+    volumes:
+      - ./:/app
+      - /app/node_modules
     depends_on:
       mysql:
         condition: service_healthy
@@ -24,20 +28,17 @@ services:
     networks:
       - correos-network
 
-  # Base de datos MySQL
   mysql:
     image: mysql:8.0
     container_name: correos-tracking-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root_password_seguro_456
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password_456}
       MYSQL_DATABASE: correos_tracking
       MYSQL_USER: correos_user
-      MYSQL_PASSWORD: correos_password_seguro_123
+      MYSQL_PASSWORD: ${DB_PASSWORD:-correos_password_123}
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database.sql:/docker-entrypoint-initdb.d/01-init.sql
-    ports:
-      - "3306:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
@@ -46,15 +47,12 @@ services:
     networks:
       - correos-network
 
-  # phpMyAdmin (opcional, para gestionar la BD)
   phpmyadmin:
     image: phpmyadmin:latest
     container_name: correos-tracking-phpmyadmin
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
-      PMA_USER: correos_user
-      PMA_PASSWORD: correos_password_seguro_123
     ports:
       - "8080:80"
     depends_on:
